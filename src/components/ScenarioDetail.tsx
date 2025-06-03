@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useCampaign } from '../context/CampaignContext';
-import { ArrowLeft, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight, Award, BarChart2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight, Award, BarChart2, Trophy } from 'lucide-react';
 import SafetyStepQuestion from './SafetyStepQuestion';
 
 interface ScenarioDetailProps {
@@ -10,7 +10,8 @@ interface ScenarioDetailProps {
 const ScenarioDetail: React.FC<ScenarioDetailProps> = ({ onBack }) => {
   const { 
     scenarios, 
-    currentScenarioIndex, 
+    currentScenarioIndex,
+    viewingScenarioIndex,
     currentStepIndex, 
     userChoices, 
     selectOption, 
@@ -18,12 +19,14 @@ const ScenarioDetail: React.FC<ScenarioDetailProps> = ({ onBack }) => {
     prevStep, 
     canCompleteScenario, 
     completeCurrentScenario,
-    getCurrentScenarioPoints
+    getCurrentScenarioPoints,
+    isAllScenariosCompleted,
+    isInReviewMode
   } = useCampaign();
   
   const [showFeedback, setShowFeedback] = useState<boolean>(false);
   
-  if (currentScenarioIndex < 0 || currentScenarioIndex >= scenarios.length) {
+  if (viewingScenarioIndex < 0 || viewingScenarioIndex >= scenarios.length) {
     return (
       <div className="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow-lg">
         <p className="text-center text-gray-700">No scenario selected.</p>
@@ -37,19 +40,23 @@ const ScenarioDetail: React.FC<ScenarioDetailProps> = ({ onBack }) => {
     );
   }
   
-  const currentScenario = scenarios[currentScenarioIndex];
+  const currentScenario = scenarios[viewingScenarioIndex];
   const currentStep = currentScenario.steps[currentStepIndex];
   const selectedOptionId = userChoices[currentStep.id];
   const isLastStep = currentStepIndex === currentScenario.steps.length - 1;
   const canComplete = canCompleteScenario();
   const currentPoints = getCurrentScenarioPoints();
+  const allScenariosCompleted = isAllScenariosCompleted();
   
   // Calculate total possible points for this scenario
   const totalPossiblePoints = currentScenario.steps.length;
   
   const handleSelectOption = (stepId: string, optionId: string) => {
-    selectOption(stepId, optionId);
-    setShowFeedback(true);
+    // Only allow selection if not in review mode
+    if (!isInReviewMode) {
+      selectOption(stepId, optionId);
+      setShowFeedback(true);
+    }
   };
   
   const handleNextStep = () => {
@@ -132,6 +139,65 @@ const ScenarioDetail: React.FC<ScenarioDetailProps> = ({ onBack }) => {
   
   const scenarioImage = getScenarioImage();
   
+  // Render completion message if all scenarios are completed
+  if (allScenariosCompleted && currentScenarioIndex === scenarios.length - 1 && !isInReviewMode) {
+    return (
+      <div className="max-w-3xl mx-auto p-8 bg-white rounded-lg shadow-lg">
+        <div className="text-center">
+          <div className="inline-block p-4 bg-green-100 rounded-full mb-4">
+            <Trophy size={64} className="text-green-600" />
+          </div>
+          <h2 className="text-3xl font-bold text-gray-800 mb-4">Congratulations!</h2>
+          <p className="text-xl text-gray-600 mb-6">
+            You have successfully completed all confined space safety training scenarios.
+          </p>
+          
+          <div className="bg-blue-50 p-6 rounded-lg mb-8">
+            <h3 className="text-xl font-semibold text-blue-800 mb-3">Your Training Summary</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {scenarios.map((scenario, index) => {
+                const scenarioPoints = getCurrentScenarioPoints();
+                const totalScenarioPoints = scenario.steps.length;
+                const percentage = Math.round((scenarioPoints / totalScenarioPoints) * 100);
+                
+                return (
+                  <div key={scenario.scenarioKey} className="bg-white p-4 rounded-lg shadow">
+                    <h4 className="font-medium text-gray-800">{scenario.title}</h4>
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="text-sm text-gray-600">Score:</span>
+                      <span className="font-medium text-blue-600">
+                        {scenarioPoints}/{totalScenarioPoints} ({percentage}%)
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          
+          <p className="text-gray-700 mb-6">
+            Remember to apply these safety principles in your daily work to ensure a safe environment for yourself and your colleagues.
+          </p>
+          
+          <div className="flex justify-center space-x-4">
+            <button 
+              onClick={onBack}
+              className="py-2 px-6 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Return to Dashboard
+            </button>
+            <button 
+              onClick={() => window.print()}
+              className="py-2 px-6 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+            >
+              Print Certificate
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow-lg">
       <div className="flex items-center mb-6">
@@ -149,6 +215,11 @@ const ScenarioDetail: React.FC<ScenarioDetailProps> = ({ onBack }) => {
             <span className="ml-3 px-3 py-1 text-sm font-medium bg-blue-100 text-blue-800 rounded-full">
               Day {currentScenario.day}
             </span>
+            {isInReviewMode && (
+              <span className="ml-3 px-3 py-1 text-sm font-medium bg-purple-100 text-purple-800 rounded-full">
+                Review Mode
+              </span>
+            )}
           </div>
           <p className="text-gray-600 mt-1">{currentScenario.description}</p>
         </div>
@@ -215,82 +286,111 @@ const ScenarioDetail: React.FC<ScenarioDetailProps> = ({ onBack }) => {
         </div>
       </div>
       
-      <SafetyStepQuestion 
-        step={currentStep}
-        selectedOptionId={selectedOptionId}
-        onSelectOption={handleSelectOption}
-        showFeedback={showFeedback}
-      />
-      
-      <div className="flex justify-between mt-8">
-        <button
-          onClick={handlePrevStep}
-          disabled={currentStepIndex === 0}
-          className={`flex items-center py-2 px-4 rounded-lg ${
-            currentStepIndex === 0 
-              ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-          }`}
-        >
-          <ChevronLeft size={20} className="mr-1" />
-          Previous
-        </button>
-        
-        {isLastStep ? (
-          <button
-            onClick={handleCompleteScenario}
-            disabled={!canComplete}
-            className={`flex items-center py-2 px-6 rounded-lg ${
-              canComplete 
-                ? 'bg-green-600 text-white hover:bg-green-700' 
-                : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            {canComplete ? (
-              <>
-                <CheckCircle size={20} className="mr-2" />
-                Complete Scenario
-              </>
-            ) : (
-              <>
-                <AlertTriangle size={20} className="mr-2" />
-                {!allVitalStepsCorrect ? 'Complete Vital Steps' : !allStepsAnswered ? 'Answer All Questions' : 'Review Answers'}
-              </>
-            )}
-          </button>
-        ) : (
-          <button
-            onClick={handleNextStep}
-            className="flex items-center py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Next
-            <ChevronRight size={20} className="ml-1" />
-          </button>
-        )}
-      </div>
-      
-      {isLastStep && !canComplete && (
-        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <div className="flex items-start">
-            <AlertTriangle size={24} className="text-yellow-500 mr-3 flex-shrink-0" />
-            <div>
-              <h4 className="font-semibold text-yellow-800">Cannot Complete Scenario</h4>
-              <p className="text-yellow-700 text-sm mt-1">
-                {!allVitalStepsCorrect && (
-                  <span className="block mb-1">
-                    You must correctly answer all vital safety questions before completing this scenario.
-                    Review your answers to the questions marked as "VITAL".
-                  </span>
-                )}
-                {!allStepsAnswered && (
-                  <span className="block">
-                    Please answer all questions in this scenario.
-                  </span>
-                )}
-              </p>
+      {/* In review mode, show all questions */}
+      {isInReviewMode ? (
+        <div className="space-y-8">
+          {currentScenario.steps.map((step, stepIndex) => (
+            <div key={step.id} className={`p-4 border rounded-lg ${stepIndex === currentStepIndex ? 'border-blue-300 bg-blue-50' : 'border-gray-200'}`}>
+              <SafetyStepQuestion 
+                step={step}
+                selectedOptionId={userChoices[step.id]}
+                onSelectOption={handleSelectOption}
+                showFeedback={true}
+                isReviewMode={true}
+              />
             </div>
+          ))}
+          
+          <div className="flex justify-center mt-8">
+            <button
+              onClick={onBack}
+              className="flex items-center py-2 px-6 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Return to Dashboard
+            </button>
           </div>
         </div>
+      ) : (
+        <>
+          <SafetyStepQuestion 
+            step={currentStep}
+            selectedOptionId={selectedOptionId}
+            onSelectOption={handleSelectOption}
+            showFeedback={showFeedback || isInReviewMode}
+            isReviewMode={isInReviewMode}
+          />
+          
+          <div className="flex justify-between mt-8">
+            <button
+              onClick={handlePrevStep}
+              disabled={currentStepIndex === 0}
+              className={`flex items-center py-2 px-4 rounded-lg ${
+                currentStepIndex === 0 
+                  ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              <ChevronLeft size={20} className="mr-1" />
+              Previous
+            </button>
+            
+            {isLastStep ? (
+              <button
+                onClick={handleCompleteScenario}
+                disabled={!canComplete}
+                className={`flex items-center py-2 px-6 rounded-lg ${
+                  canComplete 
+                    ? 'bg-green-600 text-white hover:bg-green-700' 
+                    : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                {canComplete ? (
+                  <>
+                    <CheckCircle size={20} className="mr-2" />
+                    Complete Scenario
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangle size={20} className="mr-2" />
+                    {!allVitalStepsCorrect ? 'Complete Vital Steps' : !allStepsAnswered ? 'Answer All Questions' : 'Review Answers'}
+                  </>
+                )}
+              </button>
+            ) : (
+              <button
+                onClick={handleNextStep}
+                className="flex items-center py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Next
+                <ChevronRight size={20} className="ml-1" />
+              </button>
+            )}
+          </div>
+          
+          {isLastStep && !canComplete && !isInReviewMode && (
+            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-start">
+                <AlertTriangle size={24} className="text-yellow-500 mr-3 flex-shrink-0" />
+                <div>
+                  <h4 className="font-semibold text-yellow-800">Cannot Complete Scenario</h4>
+                  <p className="text-yellow-700 text-sm mt-1">
+                    {!allVitalStepsCorrect && (
+                      <span className="block mb-1">
+                        You must correctly answer all vital safety questions before completing this scenario.
+                        Review your answers to the questions marked as "VITAL".
+                      </span>
+                    )}
+                    {!allStepsAnswered && (
+                      <span className="block">
+                        Please answer all questions in this scenario.
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

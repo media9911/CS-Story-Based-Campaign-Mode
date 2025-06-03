@@ -1,21 +1,25 @@
 import React, { createContext, useState, useContext, ReactNode } from 'react';
 import { campaignScenarios } from '../data/campaignData';
-import { CampaignContextType } from '../types/campaign';
+import { CampaignContextType, Scenario } from '../types/campaign';
 
 const CampaignContext = createContext<CampaignContextType | undefined>(undefined);
 
 export const CampaignProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentScenarioIndex, setCurrentScenarioIndex] = useState<number>(-1); // -1 means campaign not started
+  const [viewingScenarioIndex, setViewingScenarioIndex] = useState<number>(-1); // For review functionality
   const [completedScenarios, setCompletedScenarios] = useState<string[]>([]);
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [userChoices, setUserChoices] = useState<Record<string, string>>({});
   const [userPoints, setUserPoints] = useState<Record<string, number>>({});
+  const [isInReviewMode, setIsInReviewMode] = useState<boolean>(false);
 
   const startCampaign = () => {
     setCurrentScenarioIndex(0);
+    setViewingScenarioIndex(0);
     setCurrentStepIndex(0);
     setUserChoices({});
     setUserPoints({});
+    setIsInReviewMode(false);
   };
 
   const completeCurrentScenario = () => {
@@ -30,17 +34,21 @@ export const CampaignProvider: React.FC<{ children: ReactNode }> = ({ children }
       // Move to next scenario if available
       if (currentScenarioIndex < campaignScenarios.length - 1) {
         setCurrentScenarioIndex(currentScenarioIndex + 1);
+        setViewingScenarioIndex(currentScenarioIndex + 1);
         setCurrentStepIndex(0); // Reset to first step of new scenario
+        setIsInReviewMode(false); // Ensure we're not in review mode when moving to next scenario
       }
     }
   };
 
   const resetCampaign = () => {
     setCurrentScenarioIndex(-1);
+    setViewingScenarioIndex(-1);
     setCompletedScenarios([]);
     setCurrentStepIndex(0);
     setUserChoices({});
     setUserPoints({});
+    setIsInReviewMode(false);
   };
 
   const selectOption = (stepId: string, optionId: string) => {
@@ -51,8 +59,8 @@ export const CampaignProvider: React.FC<{ children: ReactNode }> = ({ children }
     }));
 
     // Calculate points for this selection
-    if (currentScenarioIndex >= 0 && currentScenarioIndex < campaignScenarios.length) {
-      const currentScenario = campaignScenarios[currentScenarioIndex];
+    if (viewingScenarioIndex >= 0 && viewingScenarioIndex < campaignScenarios.length) {
+      const currentScenario = campaignScenarios[viewingScenarioIndex];
       const step = currentScenario.steps.find(s => s.id === stepId);
       
       if (step) {
@@ -91,8 +99,8 @@ export const CampaignProvider: React.FC<{ children: ReactNode }> = ({ children }
   };
 
   const nextStep = () => {
-    if (currentScenarioIndex >= 0 && currentScenarioIndex < campaignScenarios.length) {
-      const currentScenario = campaignScenarios[currentScenarioIndex];
+    if (viewingScenarioIndex >= 0 && viewingScenarioIndex < campaignScenarios.length) {
+      const currentScenario = campaignScenarios[viewingScenarioIndex];
       if (currentStepIndex < currentScenario.steps.length - 1) {
         setCurrentStepIndex(currentStepIndex + 1);
       }
@@ -110,8 +118,8 @@ export const CampaignProvider: React.FC<{ children: ReactNode }> = ({ children }
   };
 
   const getCurrentScenarioPoints = (): number => {
-    if (currentScenarioIndex >= 0 && currentScenarioIndex < campaignScenarios.length) {
-      const scenarioKey = campaignScenarios[currentScenarioIndex].scenarioKey;
+    if (viewingScenarioIndex >= 0 && viewingScenarioIndex < campaignScenarios.length) {
+      const scenarioKey = campaignScenarios[viewingScenarioIndex].scenarioKey;
       return userPoints[scenarioKey] || 0;
     }
     return 0;
@@ -145,13 +153,36 @@ export const CampaignProvider: React.FC<{ children: ReactNode }> = ({ children }
     return false;
   };
 
+  const isAllScenariosCompleted = () => {
+    return completedScenarios.length === campaignScenarios.length && completedScenarios.length > 0;
+  };
+
+  // Function to set the viewing scenario for review
+  const setScenarioForReview = (scenarioKey: string) => {
+    const scenarioIndex = campaignScenarios.findIndex(s => s.scenarioKey === scenarioKey);
+    if (scenarioIndex >= 0) {
+      setViewingScenarioIndex(scenarioIndex);
+      setCurrentStepIndex(0); // Start at the first step when reviewing
+      setIsInReviewMode(true); // Set review mode to true
+    }
+  };
+
+  // Function to continue the current active scenario
+  const continueActiveScenario = () => {
+    setViewingScenarioIndex(currentScenarioIndex);
+    setIsInReviewMode(false); // Ensure we're not in review mode when continuing
+  };
+
   const value: CampaignContextType = {
     scenarios: campaignScenarios,
     currentScenarioIndex,
+    viewingScenarioIndex,
+    setViewingScenarioIndex,
     completedScenarios,
     currentStepIndex,
     userChoices,
     userPoints,
+    isInReviewMode,
     startCampaign,
     completeCurrentScenario,
     resetCampaign,
@@ -161,7 +192,10 @@ export const CampaignProvider: React.FC<{ children: ReactNode }> = ({ children }
     resetSteps,
     canCompleteScenario,
     getCurrentScenarioPoints,
-    getScenarioPoints
+    getScenarioPoints,
+    isAllScenariosCompleted,
+    setScenarioForReview,
+    continueActiveScenario
   };
 
   return (

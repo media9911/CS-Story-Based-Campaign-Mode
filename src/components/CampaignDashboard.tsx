@@ -3,14 +3,30 @@ import { useCampaign } from '../context/CampaignContext';
 import { CheckCircle, Lock, ArrowRight } from 'lucide-react';
 import CampaignIntro from './CampaignIntro';
 import ScenarioDetail from './ScenarioDetail';
+import CampaignComplete from './CampaignComplete';
 
 const CampaignDashboard: React.FC = () => {
-  const { scenarios, currentScenarioIndex, completedScenarios, resetCampaign } = useCampaign();
+  const { 
+    scenarios, 
+    currentScenarioIndex, 
+    completedScenarios, 
+    resetCampaign,
+    setViewingScenarioIndex,
+    isAllScenariosCompleted,
+    setScenarioForReview,
+    continueActiveScenario
+  } = useCampaign();
+  
   const [viewingScenario, setViewingScenario] = useState<boolean>(currentScenarioIndex >= 0);
   
   // If campaign hasn't started, show intro
   if (currentScenarioIndex < 0) {
     return <CampaignIntro />;
+  }
+  
+  // If all scenarios are completed, show completion screen
+  if (isAllScenariosCompleted()) {
+    return <CampaignComplete />;
   }
   
   // If viewing a specific scenario
@@ -76,7 +92,19 @@ const CampaignDashboard: React.FC = () => {
                   </button>
                 ) : (
                   <button
-                    onClick={() => setViewingScenario(true)}
+                    onClick={() => {
+                      if (isCompleted && !isActive) {
+                        // For completed scenarios, set review mode
+                        setScenarioForReview(scenario.scenarioKey);
+                      } else if (isActive) {
+                        // For active scenario, continue from where left off
+                        continueActiveScenario();
+                      } else {
+                        // For any other case, set the viewing index
+                        setViewingScenarioIndex(index);
+                      }
+                      setViewingScenario(true);
+                    }}
                     className={`w-full py-2 flex items-center justify-center rounded-lg ${
                       isCompleted 
                         ? 'text-green-700 bg-green-100 hover:bg-green-200' 

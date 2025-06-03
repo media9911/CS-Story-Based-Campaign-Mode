@@ -26,10 +26,13 @@ export interface Scenario {
 export interface CampaignContextType {
   scenarios: Scenario[];
   currentScenarioIndex: number;
+  viewingScenarioIndex: number;
+  setViewingScenarioIndex: (index: number) => void;
   completedScenarios: string[];
   currentStepIndex: number;
   userChoices: Record<string, string>;
   userPoints: Record<string, number>; // Track points per scenario
+  isInReviewMode: boolean; // Added to track review mode state
   startCampaign: () => void;
   completeCurrentScenario: () => void;
   resetCampaign: () => void;
@@ -40,4 +43,7 @@ export interface CampaignContextType {
   canCompleteScenario: () => boolean;
   getCurrentScenarioPoints: () => number;
   getScenarioPoints: (scenarioKey: string) => number;
+  isAllScenariosCompleted: () => boolean;
+  setScenarioForReview: (scenarioKey: string) => void;
+  continueActiveScenario: () => void; // Added to explicitly continue active scenario
 }
