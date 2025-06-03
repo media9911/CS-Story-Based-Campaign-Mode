@@ -9,11 +9,13 @@ export const CampaignProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [completedScenarios, setCompletedScenarios] = useState<string[]>([]);
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [userChoices, setUserChoices] = useState<Record<string, string>>({});
+  const [userPoints, setUserPoints] = useState<Record<string, number>>({});
 
   const startCampaign = () => {
     setCurrentScenarioIndex(0);
     setCurrentStepIndex(0);
     setUserChoices({});
+    setUserPoints({});
   };
 
   const completeCurrentScenario = () => {
@@ -38,13 +40,54 @@ export const CampaignProvider: React.FC<{ children: ReactNode }> = ({ children }
     setCompletedScenarios([]);
     setCurrentStepIndex(0);
     setUserChoices({});
+    setUserPoints({});
   };
 
   const selectOption = (stepId: string, optionId: string) => {
-    setUserChoices({
-      ...userChoices,
+    // Store the user's choice
+    setUserChoices(prevChoices => ({
+      ...prevChoices,
       [stepId]: optionId
-    });
+    }));
+
+    // Calculate points for this selection
+    if (currentScenarioIndex >= 0 && currentScenarioIndex < campaignScenarios.length) {
+      const currentScenario = campaignScenarios[currentScenarioIndex];
+      const step = currentScenario.steps.find(s => s.id === stepId);
+      
+      if (step) {
+        const option = step.options.find(o => o.id === optionId);
+        if (option) {
+          const scenarioKey = currentScenario.scenarioKey;
+          
+          // Get current points for this scenario
+          const currentScenarioPoints = userPoints[scenarioKey] || 0;
+          
+          // If user already answered this question, subtract the previous points
+          const previousOptionId = userChoices[stepId];
+          let pointsToAdd = 0;
+          
+          // Award 1 point for correct answers
+          if (option.correct) {
+            pointsToAdd = 1;
+          }
+          
+          if (previousOptionId && previousOptionId !== optionId) {
+            const previousOption = step.options.find(o => o.id === previousOptionId);
+            if (previousOption && previousOption.correct) {
+              // Remove previous correct answer's point
+              pointsToAdd -= 1;
+            }
+          }
+          
+          // Update points for this scenario
+          setUserPoints(prevPoints => ({
+            ...prevPoints,
+            [scenarioKey]: Math.max(0, currentScenarioPoints + pointsToAdd)
+          }));
+        }
+      }
+    }
   };
 
   const nextStep = () => {
@@ -66,14 +109,25 @@ export const CampaignProvider: React.FC<{ children: ReactNode }> = ({ children }
     setCurrentStepIndex(0);
   };
 
+  const getCurrentScenarioPoints = (): number => {
+    if (currentScenarioIndex >= 0 && currentScenarioIndex < campaignScenarios.length) {
+      const scenarioKey = campaignScenarios[currentScenarioIndex].scenarioKey;
+      return userPoints[scenarioKey] || 0;
+    }
+    return 0;
+  };
+
+  const getScenarioPoints = (scenarioKey: string): number => {
+    return userPoints[scenarioKey] || 0;
+  };
+
   const canCompleteScenario = () => {
     if (currentScenarioIndex >= 0 && currentScenarioIndex < campaignScenarios.length) {
       const currentScenario = campaignScenarios[currentScenarioIndex];
       
-      // Check if all vital steps have been answered
+      // Check if all vital steps have been answered correctly
       const vitalSteps = currentScenario.steps.filter(step => step.vital);
-      
-      return vitalSteps.every(step => {
+      const allVitalStepsCorrect = vitalSteps.every(step => {
         const userChoice = userChoices[step.id];
         if (!userChoice) return false;
         
@@ -81,6 +135,12 @@ export const CampaignProvider: React.FC<{ children: ReactNode }> = ({ children }
         const selectedOption = step.options.find(option => option.id === userChoice);
         return selectedOption && selectedOption.correct;
       });
+      
+      // Check if all steps have been answered
+      const allStepsAnswered = currentScenario.steps.every(step => !!userChoices[step.id]);
+      
+      // If all vital steps are correct and all questions are answered, allow completion
+      return allVitalStepsCorrect && allStepsAnswered;
     }
     return false;
   };
@@ -91,6 +151,7 @@ export const CampaignProvider: React.FC<{ children: ReactNode }> = ({ children }
     completedScenarios,
     currentStepIndex,
     userChoices,
+    userPoints,
     startCampaign,
     completeCurrentScenario,
     resetCampaign,
@@ -98,7 +159,9 @@ export const CampaignProvider: React.FC<{ children: ReactNode }> = ({ children }
     nextStep,
     prevStep,
     resetSteps,
-    canCompleteScenario
+    canCompleteScenario,
+    getCurrentScenarioPoints,
+    getScenarioPoints
   };
 
   return (

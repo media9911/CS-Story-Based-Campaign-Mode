@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useCampaign } from '../context/CampaignContext';
-import { ArrowLeft, ArrowRight, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, CheckCircle, AlertTriangle, ChevronLeft, ChevronRight, Award, BarChart2 } from 'lucide-react';
 import SafetyStepQuestion from './SafetyStepQuestion';
 
 interface ScenarioDetailProps {
@@ -17,7 +17,8 @@ const ScenarioDetail: React.FC<ScenarioDetailProps> = ({ onBack }) => {
     nextStep, 
     prevStep, 
     canCompleteScenario, 
-    completeCurrentScenario 
+    completeCurrentScenario,
+    getCurrentScenarioPoints
   } = useCampaign();
   
   const [showFeedback, setShowFeedback] = useState<boolean>(false);
@@ -41,6 +42,10 @@ const ScenarioDetail: React.FC<ScenarioDetailProps> = ({ onBack }) => {
   const selectedOptionId = userChoices[currentStep.id];
   const isLastStep = currentStepIndex === currentScenario.steps.length - 1;
   const canComplete = canCompleteScenario();
+  const currentPoints = getCurrentScenarioPoints();
+  
+  // Calculate total possible points for this scenario
+  const totalPossiblePoints = currentScenario.steps.length;
   
   const handleSelectOption = (stepId: string, optionId: string) => {
     selectOption(stepId, optionId);
@@ -62,6 +67,71 @@ const ScenarioDetail: React.FC<ScenarioDetailProps> = ({ onBack }) => {
     setShowFeedback(false);
   };
   
+  // Check if all vital steps are answered correctly
+  const vitalSteps = currentScenario.steps.filter(step => step.vital);
+  const allVitalStepsCorrect = vitalSteps.every(step => {
+    const userChoice = userChoices[step.id];
+    if (!userChoice) return false;
+    
+    const selectedOption = step.options.find(option => option.id === userChoice);
+    return selectedOption && selectedOption.correct;
+  });
+  
+  // Check if all steps have been answered
+  const allStepsAnswered = currentScenario.steps.every(step => !!userChoices[step.id]);
+  
+  // Get scenario image and caption based on scenario key
+  const getScenarioImage = () => {
+    switch(currentScenario.scenarioKey) {
+      case "first-day":
+        return {
+          src: "https://images.pexels.com/photos/2760344/pexels-photo-2760344.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2",
+          alt: "Industrial worker in safety gear inspecting a confined space",
+          caption: "First day at the industrial facility: Learn about confined space hazards and basic safety protocols."
+        };
+      case "permit-system":
+        return {
+          src: "https://images.pexels.com/photos/8961251/pexels-photo-8961251.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2",
+          alt: "Worker reviewing safety permits and documentation",
+          caption: "Understanding the permit system is crucial for safe confined space operations."
+        };
+      case "atmospheric-testing":
+        return {
+          src: "https://images.pexels.com/photos/8961286/pexels-photo-8961286.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2",
+          alt: "Worker using gas detection equipment to test air quality",
+          caption: "Proper atmospheric testing can prevent exposure to toxic gases and oxygen deficiency."
+        };
+      case "communication":
+        return {
+          src: "https://images.pexels.com/photos/8961267/pexels-photo-8961267.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2",
+          alt: "Workers communicating during confined space operations",
+          caption: "Clear communication between entrants and attendants is essential for confined space safety."
+        };
+      case "emergency":
+        return {
+          src: "https://images.pexels.com/photos/8961271/pexels-photo-8961271.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2",
+          alt: "Emergency response team conducting a confined space rescue drill",
+          caption: "Knowing emergency procedures can save lives when seconds count."
+        };
+      case "equipment":
+        return {
+          src: "https://images.pexels.com/photos/8961280/pexels-photo-8961280.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2",
+          alt: "Safety equipment for confined space entry laid out for inspection",
+          caption: "Proper inspection and use of safety equipment is your last line of defense."
+        };
+      case "assessment":
+        return {
+          src: "https://images.pexels.com/photos/8961254/pexels-photo-8961254.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2",
+          alt: "Team reviewing safety procedures and conducting final assessment",
+          caption: "Final assessment: Put your confined space safety knowledge to the test."
+        };
+      default:
+        return null;
+    }
+  };
+  
+  const scenarioImage = getScenarioImage();
+  
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow-lg">
       <div className="flex items-center mb-6">
@@ -73,7 +143,7 @@ const ScenarioDetail: React.FC<ScenarioDetailProps> = ({ onBack }) => {
           <ArrowLeft size={24} className="text-gray-600" />
         </button>
         
-        <div>
+        <div className="flex-1">
           <div className="flex items-center">
             <h2 className="text-2xl font-bold text-gray-800">{currentScenario.title}</h2>
             <span className="ml-3 px-3 py-1 text-sm font-medium bg-blue-100 text-blue-800 rounded-full">
@@ -84,16 +154,64 @@ const ScenarioDetail: React.FC<ScenarioDetailProps> = ({ onBack }) => {
         </div>
       </div>
       
-      <div className="mb-6">
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div 
-            className="bg-blue-600 h-2 rounded-full" 
-            style={{ width: `${((currentStepIndex + 1) / currentScenario.steps.length) * 100}%` }}
-          ></div>
+      {/* Scenario Image */}
+      {scenarioImage && (
+        <div className="mb-6 rounded-lg overflow-hidden shadow-md">
+          <img 
+            src={scenarioImage.src} 
+            alt={scenarioImage.alt} 
+            className="w-full h-64 object-cover"
+          />
+          <div className="p-3 bg-blue-50 text-sm text-blue-800">
+            <p>{scenarioImage.caption}</p>
+          </div>
         </div>
-        <div className="flex justify-between mt-2 text-sm text-gray-600">
-          <span>Step {currentStepIndex + 1} of {currentScenario.steps.length}</span>
-          <span>{Math.round(((currentStepIndex + 1) / currentScenario.steps.length) * 100)}% Complete</span>
+      )}
+      
+      <div className="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
+        <div className="flex justify-between items-center mb-3">
+          <div className="flex items-center">
+            <BarChart2 className="text-blue-600 mr-2" size={18} />
+            <span className="text-sm font-medium text-gray-700">Progress</span>
+          </div>
+          <span className="text-sm text-gray-600">Step {currentStepIndex + 1} of {currentScenario.steps.length}</span>
+        </div>
+        
+        <div className="mb-3">
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-xs text-blue-700">Step Progress</span>
+            <span className="text-xs font-medium text-blue-700">{Math.round((currentStepIndex + 1) / currentScenario.steps.length * 100)}%</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+              style={{ width: `${((currentStepIndex + 1) / currentScenario.steps.length) * 100}%` }}
+              aria-label="Step progress"
+            ></div>
+          </div>
+        </div>
+        
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <div className="flex items-center">
+              <Award className="text-purple-600 mr-1" size={16} />
+              <span className="text-xs text-purple-700">Points Earned</span>
+            </div>
+            <span className="text-xs font-medium text-purple-700">
+              {currentPoints} / {totalPossiblePoints}
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-purple-500 h-2 rounded-full transition-all duration-300"
+              style={{ 
+                width: `${totalPossiblePoints > 0 
+                  ? Math.min((currentPoints / totalPossiblePoints) * 100, 100)
+                  : 0}%` 
+              }}
+              aria-label="Points progress"
+            ></div>
+          </div>
         </div>
       </div>
       
@@ -136,7 +254,7 @@ const ScenarioDetail: React.FC<ScenarioDetailProps> = ({ onBack }) => {
             ) : (
               <>
                 <AlertTriangle size={20} className="mr-2" />
-                Complete All Vital Steps
+                {!allVitalStepsCorrect ? 'Complete Vital Steps' : !allStepsAnswered ? 'Answer All Questions' : 'Review Answers'}
               </>
             )}
           </button>
@@ -156,10 +274,19 @@ const ScenarioDetail: React.FC<ScenarioDetailProps> = ({ onBack }) => {
           <div className="flex items-start">
             <AlertTriangle size={24} className="text-yellow-500 mr-3 flex-shrink-0" />
             <div>
-              <h4 className="font-semibold text-yellow-800">Incomplete Vital Steps</h4>
+              <h4 className="font-semibold text-yellow-800">Cannot Complete Scenario</h4>
               <p className="text-yellow-700 text-sm mt-1">
-                You must correctly answer all vital safety questions before completing this scenario.
-                Review your answers to the questions marked as "VITAL".
+                {!allVitalStepsCorrect && (
+                  <span className="block mb-1">
+                    You must correctly answer all vital safety questions before completing this scenario.
+                    Review your answers to the questions marked as "VITAL".
+                  </span>
+                )}
+                {!allStepsAnswered && (
+                  <span className="block">
+                    Please answer all questions in this scenario.
+                  </span>
+                )}
               </p>
             </div>
           </div>

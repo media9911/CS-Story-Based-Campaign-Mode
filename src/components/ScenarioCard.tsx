@@ -1,6 +1,7 @@
 import React from 'react';
 import { Scenario } from '../types/campaign';
-import { Calendar, CheckCircle, Lock } from 'lucide-react';
+import { Calendar, CheckCircle, Lock, Award, Star } from 'lucide-react';
+import { useCampaign } from '../context/CampaignContext';
 
 interface ScenarioCardProps {
   scenario: Scenario;
@@ -17,6 +18,10 @@ const ScenarioCard: React.FC<ScenarioCardProps> = ({
   isCurrent,
   onSelect 
 }) => {
+  const { getScenarioPoints } = useCampaign();
+  const earnedPoints = getScenarioPoints(scenario.scenarioKey);
+  const pointsRatio = isCompleted ? 1 : Math.min(earnedPoints / scenario.requiredPoints, 1);
+  
   return (
     <div 
       className={`
@@ -48,6 +53,31 @@ const ScenarioCard: React.FC<ScenarioCardProps> = ({
       <h3 className="text-lg font-semibold text-gray-800 mb-2">{scenario.title}</h3>
       
       <p className="text-gray-600 mb-4 text-sm">{scenario.description}</p>
+      
+      {!isLocked && (
+        <div className="mb-3">
+          <div className="flex justify-between items-center mb-1">
+            <div className="flex items-center text-xs text-purple-700">
+              <Star className="text-purple-500 mr-1" size={14} />
+              <span>Points Required: {scenario.requiredPoints}</span>
+            </div>
+            <span className="text-xs font-medium text-purple-700">{earnedPoints} earned</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-1.5">
+            <div 
+              className={`h-1.5 rounded-full transition-all duration-300 ${isCompleted ? 'bg-green-500' : 'bg-purple-500'}`}
+              style={{ width: `${pointsRatio * 100}%` }}
+            ></div>
+          </div>
+          <div className="mt-1 text-xs text-gray-500 text-right">
+            {isCompleted 
+              ? 'Completed!' 
+              : earnedPoints > 0 
+                ? `${Math.round(pointsRatio * 100)}% of required points` 
+                : 'No points earned yet'}
+          </div>
+        </div>
+      )}
       
       <button
         onClick={onSelect}

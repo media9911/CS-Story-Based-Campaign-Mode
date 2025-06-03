@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { SafetyStep, SafetyStepOption } from '../types/campaign';
-import { CheckCircle, XCircle } from 'lucide-react';
+import { CheckCircle, XCircle, Star } from 'lucide-react';
 
 interface SafetyStepQuestionProps {
   step: SafetyStep;
@@ -9,12 +9,28 @@ interface SafetyStepQuestionProps {
   showFeedback: boolean;
 }
 
+// Fisher-Yates shuffle algorithm for randomizing array elements
+const shuffleArray = <T,>(array: T[]): T[] => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
 const SafetyStepQuestion: React.FC<SafetyStepQuestionProps> = ({
   step,
   selectedOptionId,
   onSelectOption,
   showFeedback
 }) => {
+  // Randomize options order using useMemo to maintain the same order during re-renders
+  // but shuffle when the step changes
+  const shuffledOptions = useMemo(() => {
+    return shuffleArray(step.options);
+  }, [step.id]); // Only re-shuffle when step.id changes
+
   return (
     <div className="mb-8">
       <div className="flex items-start mb-4">
@@ -24,10 +40,14 @@ const SafetyStepQuestion: React.FC<SafetyStepQuestionProps> = ({
           </span>
         )}
         <h3 className="text-xl font-semibold text-gray-800">{step.description}</h3>
+        <span className="ml-auto flex items-center text-purple-700 font-medium bg-purple-50 px-2 py-1 rounded">
+          <Star size={16} className="mr-1 text-purple-500" />
+          Worth points
+        </span>
       </div>
 
       <div className="space-y-3">
-        {step.options.map((option) => {
+        {shuffledOptions.map((option) => {
           const isSelected = selectedOptionId === option.id;
           const showCorrectness = showFeedback && isSelected;
           
@@ -47,17 +67,19 @@ const SafetyStepQuestion: React.FC<SafetyStepQuestionProps> = ({
             >
               <div className="flex items-start">
                 <div className="flex-1">
-                  <p className={`font-medium ${
-                    isSelected 
-                      ? showFeedback
-                        ? option.correct 
-                          ? 'text-green-700' 
-                          : 'text-red-700'
-                        : 'text-blue-700'
-                      : 'text-gray-700'
-                  }`}>
-                    {option.text}
-                  </p>
+                  <div className="flex items-center">
+                    <p className={`font-medium ${
+                      isSelected 
+                        ? showFeedback
+                          ? option.correct 
+                            ? 'text-green-700' 
+                            : 'text-red-700'
+                          : 'text-blue-700'
+                        : 'text-gray-700'
+                    }`}>
+                      {option.text}
+                    </p>
+                  </div>
                   
                   {showCorrectness && (
                     <div className="mt-2 text-sm">
